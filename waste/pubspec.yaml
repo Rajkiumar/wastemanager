@@ -35,6 +35,9 @@ dependencies:
   # --- Feature: Notifications ---
   firebase_messaging: ^16.1.1
 
+  # --- Feature: Preferences ---
+  shared_preferences: ^2.2.2
+
   # --- Feature: Calendar & Scheduling ---
   table_calendar: ^3.1.2
   intl: ^0.19.0

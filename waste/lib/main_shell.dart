@@ -5,6 +5,9 @@ import 'tabs/report_tab.dart';
 import 'tabs/schedule_tab.dart';
 import 'tabs/tracker_tab.dart';
 import 'tabs/education_tab.dart';
+import 'tabs/leaderboard_tab.dart';
+import 'tabs/analytics_tab.dart';
+import 'screens/profile_screen.dart';
 
 class MainScreenShell extends StatefulWidget {
   const MainScreenShell({super.key, required this.role});
@@ -25,6 +28,9 @@ class _MainScreenShellState extends State<MainScreenShell> {
       const ScheduleTab(),
       const ReportTab(),
       const EducationTab(),
+      const AnalyticsTab(),
+      const LeaderboardTab(),
+      const ProfileScreen(),
     ];
 
     return Scaffold(
@@ -46,10 +52,13 @@ class _MainScreenShellState extends State<MainScreenShell> {
         selectedIndex: _selectedIndex,
         onDestinationSelected: (index) => setState(() => _selectedIndex = index),
         destinations: const [
-          NavigationDestination(icon: Icon(Icons.local_shipping), label: 'Live Tracker'),
+          NavigationDestination(icon: Icon(Icons.local_shipping), label: 'Tracker'),
           NavigationDestination(icon: Icon(Icons.calendar_today), label: 'Schedule'),
           NavigationDestination(icon: Icon(Icons.report), label: 'Report'),
           NavigationDestination(icon: Icon(Icons.school), label: 'Education'),
+          NavigationDestination(icon: Icon(Icons.analytics), label: 'Analytics'),
+          NavigationDestination(icon: Icon(Icons.leaderboard), label: 'Leaderboard'),
+          NavigationDestination(icon: Icon(Icons.person), label: 'Profile'),
         ],
       ),
     );

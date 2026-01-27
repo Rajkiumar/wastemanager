@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../../main_shell.dart';
 import '../../services/auth_service.dart';
+import '../../services/user_profile_service.dart';
 
 class LoginScreen extends StatelessWidget {
   const LoginScreen({super.key});
@@ -447,10 +448,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     setState(() => _loading = true);
     try {
-      await FirebaseAuth.instance.createUserWithEmailAndPassword(
+      final userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
+
+      // Create user profile
+      if (userCredential.user != null) {
+        await UserProfileService().createUserProfile(
+          userCredential.user!.uid,
+          email,
+        );
+      }
 
       if (!mounted) return;
       Navigator.pushReplacement(
@@ -520,14 +529,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Row(
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.arrow_back, color: Colors.white),
-                              onPressed: () => Navigator.pop(context),
-                            ),
-                          ],
-                        ),
                         const Text(
                           'Your logo',
                           style: TextStyle(
@@ -1131,10 +1132,18 @@ class _TruckDriverRegisterScreenState extends State<TruckDriverRegisterScreen> {
 
     setState(() => _loading = true);
     try {
-      await FirebaseAuth.instance.createUserWithEmailAndPassword(
+      final userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
+
+      // Create user profile
+      if (userCredential.user != null) {
+        await UserProfileService().createUserProfile(
+          userCredential.user!.uid,
+          email,
+        );
+      }
 
       if (!mounted) return;
       Navigator.pushReplacement(
@@ -1204,14 +1213,6 @@ class _TruckDriverRegisterScreenState extends State<TruckDriverRegisterScreen> {
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Row(
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.arrow_back, color: Colors.white),
-                              onPressed: () => Navigator.pop(context),
-                            ),
-                          ],
-                        ),
                         const Text(
                           'Your logo',
                           style: TextStyle(
