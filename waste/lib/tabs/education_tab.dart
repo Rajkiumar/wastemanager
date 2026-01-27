@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../services/user_profile_service.dart';
 
 class EducationTab extends StatefulWidget {
   const EducationTab({super.key});
@@ -76,20 +77,8 @@ class _EducationTabState extends State<EducationTab> with SingleTickerProviderSt
   }
 
   Future<void> _awardPoints(int points) async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-
     try {
-      final userDoc = FirebaseFirestore.instance.collection('users').doc(user.uid);
-      await FirebaseFirestore.instance.runTransaction((transaction) async {
-        final snapshot = await transaction.get(userDoc);
-        final currentPoints = snapshot.exists ? (snapshot.data()?['greenPoints'] ?? 0) : 0;
-        transaction.set(
-          userDoc,
-          {'greenPoints': currentPoints + points},
-          SetOptions(merge: true),
-        );
-      });
+      await UserProfileService().awardPoints(points, reason: 'Waste sorting learned');
     } catch (e) {
       debugPrint('Error awarding points: $e');
     }

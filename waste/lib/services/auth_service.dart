@@ -1,9 +1,11 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'user_profile_service.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final GoogleSignIn _googleSignIn = GoogleSignIn();
+  final UserProfileService _profileService = UserProfileService();
 
   // Sign in with Google
   Future<User?> signInWithGoogle() async {
@@ -33,6 +35,18 @@ class AuthService {
       print("🔄 Signing in to Firebase...");
       final UserCredential userCredential = await _auth.signInWithCredential(credential);
       print("✅ Firebase Sign-In successful: ${userCredential.user?.email}");
+      
+      // 5. Create user profile if this is first time
+      if (userCredential.user != null && userCredential.additionalUserInfo?.isNewUser == true) {
+        print("🆕 Creating profile for new Google user...");
+        await _profileService.createUserProfile(
+          userCredential.user!.uid,
+          userCredential.user!.email ?? '',
+          displayName: userCredential.user!.displayName ?? '',
+        );
+        print("✅ Profile created");
+      }
+      
       return userCredential.user;
     } on FirebaseAuthException catch (e) {
       print("❌ Firebase Auth Error: ${e.code} - ${e.message}");
