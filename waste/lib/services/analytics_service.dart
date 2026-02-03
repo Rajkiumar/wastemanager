@@ -11,11 +11,14 @@ class AnalyticsService {
   Future<AnalyticsSummary> getAnalyticsSummary({int days = 30}) async {
     try {
       final startDate = DateTime.now().subtract(Duration(days: days));
-      
+
       // Query reports in date range
       final reportsQuery = await _firestore
           .collection('reports')
-          .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(startDate))
+          .where(
+            'createdAt',
+            isGreaterThanOrEqualTo: Timestamp.fromDate(startDate),
+          )
           .get();
 
       final reports = reportsQuery.docs;
@@ -28,13 +31,18 @@ class AnalyticsService {
       for (var doc in reports) {
         final status = doc.data()['status'] as String? ?? 'pending';
         statusBreakdown[status] = (statusBreakdown[status] ?? 0) + 1;
-        
-        if (status == 'pending') pending++;
-        else if (status == 'completed' || status == 'resolved') completed++;
-        else if (status == 'rejected') rejected++;
+
+        if (status == 'pending')
+          pending++;
+        else if (status == 'completed' || status == 'resolved')
+          completed++;
+        else if (status == 'rejected')
+          rejected++;
       }
 
-      final completionRate = totalReports > 0 ? (completed / totalReports * 100) : 0.0;
+      final completionRate = totalReports > 0
+          ? (completed / totalReports * 100)
+          : 0.0;
 
       // Get user stats
       final usersQuery = await _firestore.collection('userProfiles').get();
@@ -71,7 +79,11 @@ class AnalyticsService {
     final now = DateTime.now();
 
     for (int i = days - 1; i >= 0; i--) {
-      final date = DateTime(now.year, now.month, now.day).subtract(Duration(days: i));
+      final date = DateTime(
+        now.year,
+        now.month,
+        now.day,
+      ).subtract(Duration(days: i));
       final nextDay = date.add(const Duration(days: 1));
 
       final reportsSnapshot = await _firestore
@@ -80,12 +92,14 @@ class AnalyticsService {
           .where('createdAt', isLessThan: Timestamp.fromDate(nextDay))
           .get();
 
-      metrics.add(DailyMetric(
-        date: date,
-        reportCount: reportsSnapshot.docs.length,
-        pointsEarned: 0, // Can be calculated from user activity if needed
-        itemsSorted: 0,
-      ));
+      metrics.add(
+        DailyMetric(
+          date: date,
+          reportCount: reportsSnapshot.docs.length,
+          pointsEarned: 0, // Can be calculated from user activity if needed
+          itemsSorted: 0,
+        ),
+      );
     }
 
     return metrics;
@@ -101,10 +115,21 @@ class AnalyticsService {
       if (user == null) throw Exception('User not authenticated');
 
       // Get user profile for display name
-      final profileDoc = await _firestore.collection('userProfiles').doc(user.uid).get();
-      final displayName = profileDoc.data()?['displayName'] as String? ?? user.email?.split('@').first ?? 'Unknown';
+      final profileDoc = await _firestore
+          .collection('userProfiles')
+          .doc(user.uid)
+          .get();
+      final displayName =
+          profileDoc.data()?['displayName'] as String? ??
+          user.email?.split('@').first ??
+          'Unknown';
 
-      final commentId = _firestore.collection('reports').doc(reportId).collection('comments').doc().id;
+      final commentId = _firestore
+          .collection('reports')
+          .doc(reportId)
+          .collection('comments')
+          .doc()
+          .id;
 
       final comment = ReportComment(
         id: commentId,
@@ -137,9 +162,11 @@ class AnalyticsService {
         .collection('comments')
         .orderBy('createdAt', descending: false)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => ReportComment.fromJson(doc.data()))
-            .toList());
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => ReportComment.fromJson(doc.data()))
+              .toList(),
+        );
   }
 
   /// Update report status and add timeline event
@@ -153,8 +180,10 @@ class AnalyticsService {
       if (user == null) throw Exception('User not authenticated');
 
       // Get current report to check if status is locked
-      final reportDoc = await _firestore.collection('reports').doc(reportId).get();
-      final currentStatus = reportDoc.data()?['status'] as String?;
+      final reportDoc = await _firestore
+          .collection('reports')
+          .doc(reportId)
+          .get();
       final statusLocked = reportDoc.data()?['statusLocked'] as bool? ?? false;
 
       // If status is locked (driver already set late/early/ontime), don't allow changes
@@ -167,7 +196,11 @@ class AnalyticsService {
         'status': newStatus,
         'updatedAt': Timestamp.now(),
         // Lock status if driver sets late/early/ontime
-        'statusLocked': ['late', 'early', 'ontime'].contains(newStatus.toLowerCase()),
+        'statusLocked': [
+          'late',
+          'early',
+          'ontime',
+        ].contains(newStatus.toLowerCase()),
       });
 
       // Add timeline event
@@ -199,9 +232,133 @@ class AnalyticsService {
         .collection('timeline')
         .orderBy('timestamp', descending: false)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => TimelineEvent.fromJson(doc.data()))
-            .toList());
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => TimelineEvent.fromJson(doc.data()))
+              .toList(),
+        );
+  }
+
+  /// Toggle like on a comment
+  Future<void> toggleCommentLike({
+    required String reportId,
+    required String commentId,
+  }) async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) throw Exception('User not authenticated');
+
+      final commentRef = _firestore
+          .collection('reports')
+          .doc(reportId)
+          .collection('comments')
+          .doc(commentId);
+
+      final commentDoc = await commentRef.get();
+      if (!commentDoc.exists) throw Exception('Comment not found');
+
+      final likedBy = List<String>.from(commentDoc.data()?['likedBy'] ?? []);
+
+      if (likedBy.contains(user.uid)) {
+        // Unlike
+        likedBy.remove(user.uid);
+      } else {
+        // Like
+        likedBy.add(user.uid);
+      }
+
+      await commentRef.update({'likedBy': likedBy});
+      debugPrint('Comment like toggled');
+    } catch (e) {
+      debugPrint('Error toggling comment like: $e');
+      rethrow;
+    }
+  }
+
+  /// Add a reply to a comment
+  Future<void> addReply({
+    required String reportId,
+    required String parentCommentId,
+    required String text,
+  }) async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) throw Exception('User not authenticated');
+
+      // Get user profile for display name
+      final profileDoc = await _firestore
+          .collection('userProfiles')
+          .doc(user.uid)
+          .get();
+      final displayName =
+          profileDoc.data()?['displayName'] as String? ??
+          user.email?.split('@').first ??
+          'Unknown';
+
+      final commentId = _firestore
+          .collection('reports')
+          .doc(reportId)
+          .collection('comments')
+          .doc()
+          .id;
+
+      final reply = ReportComment(
+        id: commentId,
+        reportId: reportId,
+        userId: user.uid,
+        userDisplayName: displayName,
+        text: text,
+        createdAt: DateTime.now(),
+        parentCommentId: parentCommentId,
+      );
+
+      await _firestore
+          .collection('reports')
+          .doc(reportId)
+          .collection('comments')
+          .doc(commentId)
+          .set(reply.toJson());
+
+      debugPrint('Reply added to comment $parentCommentId');
+    } catch (e) {
+      debugPrint('Error adding reply: $e');
+      rethrow;
+    }
+  }
+
+  /// Get replies for a specific comment
+  Stream<List<ReportComment>> getRepliesStream(
+    String reportId,
+    String parentCommentId,
+  ) {
+    return _firestore
+        .collection('reports')
+        .doc(reportId)
+        .collection('comments')
+        .where('parentCommentId', isEqualTo: parentCommentId)
+        .orderBy('createdAt', descending: false)
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => ReportComment.fromJson(doc.data()))
+              .toList(),
+        );
+  }
+
+  /// Get top-level comments only (no replies)
+  Stream<List<ReportComment>> getTopLevelCommentsStream(String reportId) {
+    return _firestore
+        .collection('reports')
+        .doc(reportId)
+        .collection('comments')
+        .where('parentCommentId', isNull: true)
+        .orderBy('createdAt', descending: false)
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => ReportComment.fromJson(doc.data()))
+              .toList(),
+        );
   }
 
   /// Get current user's personal analytics
@@ -215,7 +372,10 @@ class AnalyticsService {
           .where('userId', isEqualTo: user.uid)
           .get();
 
-      final profileDoc = await _firestore.collection('userProfiles').doc(user.uid).get();
+      final profileDoc = await _firestore
+          .collection('userProfiles')
+          .doc(user.uid)
+          .get();
       final profileData = profileDoc.data() ?? {};
 
       return {

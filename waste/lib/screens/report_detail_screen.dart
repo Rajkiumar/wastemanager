@@ -21,29 +21,22 @@ class ReportDetailScreen extends StatefulWidget {
 class _ReportDetailScreenState extends State<ReportDetailScreen> {
   final AnalyticsService _analyticsService = AnalyticsService();
   final TextEditingController _commentController = TextEditingController();
+  final TextEditingController _replyController = TextEditingController();
   bool _isSubmittingComment = false;
-  String? _userRole;
+  String? _replyingToCommentId;
+  String? _replyingToUserName;
+
+  String get _currentUserId => FirebaseAuth.instance.currentUser?.uid ?? '';
 
   @override
   void initState() {
     super.initState();
-    _checkUserRole();
-  }
-
-  Future<void> _checkUserRole() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      // Check if user is driver or admin (for now, simplified)
-      // In production, you'd check user roles from Firestore
-      setState(() {
-        _userRole = 'resident'; // Default to resident
-      });
-    }
   }
 
   @override
   void dispose() {
     _commentController.dispose();
+    _replyController.dispose();
     super.dispose();
   }
 
@@ -63,11 +56,50 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
         const SnackBar(content: Text('Comment added successfully')),
       );
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error adding comment: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error adding comment: $e')));
     } finally {
       setState(() => _isSubmittingComment = false);
+    }
+  }
+
+  Future<void> _addReply(String parentCommentId) async {
+    if (_replyController.text.trim().isEmpty) return;
+
+    try {
+      await _analyticsService.addReply(
+        reportId: widget.reportId,
+        parentCommentId: parentCommentId,
+        text: _replyController.text.trim(),
+      );
+
+      _replyController.clear();
+      setState(() {
+        _replyingToCommentId = null;
+        _replyingToUserName = null;
+      });
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Reply added successfully')));
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error adding reply: $e')));
+    }
+  }
+
+  Future<void> _toggleLike(String commentId) async {
+    try {
+      await _analyticsService.toggleCommentLike(
+        reportId: widget.reportId,
+        commentId: commentId,
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: $e')));
     }
   }
 
@@ -78,25 +110,22 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
         newStatus: newStatus,
       );
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Status updated to $newStatus')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Status updated to $newStatus')));
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: ${e.toString()}')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
     }
   }
 
   void _showStatusDialog() {
-    final currentStatus = widget.reportData['status'] ?? 'pending';
     final statusLocked = widget.reportData['statusLocked'] as bool? ?? false;
 
     if (statusLocked) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Status is locked and cannot be changed'),
-        ),
+        const SnackBar(content: Text('Status is locked and cannot be changed')),
       );
       return;
     }
@@ -110,8 +139,16 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
           children: [
             const Text('Select driver status:'),
             const SizedBox(height: 16),
-            _buildStatusOption('early', 'Early - Arrived before scheduled time', Colors.green),
-            _buildStatusOption('ontime', 'On Time - Arrived as scheduled', Colors.blue),
+            _buildStatusOption(
+              'early',
+              'Early - Arrived before scheduled time',
+              Colors.green,
+            ),
+            _buildStatusOption(
+              'ontime',
+              'On Time - Arrived as scheduled',
+              Colors.blue,
+            ),
             _buildStatusOption('late', 'Late - Delayed pickup', Colors.orange),
           ],
         ),
@@ -209,7 +246,10 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                         if (statusLocked)
                           Text(
                             '🔒 Status locked by driver',
-                            style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade700,
+                            ),
                           ),
                       ],
                     ),
@@ -224,8 +264,16 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildDetailRow(Icons.category, 'Type', widget.reportData['issueType'] ?? 'N/A'),
-                  _buildDetailRow(Icons.location_on, 'Location', widget.reportData['location'] ?? 'N/A'),
+                  _buildDetailRow(
+                    Icons.category,
+                    'Type',
+                    widget.reportData['issueType'] ?? 'N/A',
+                  ),
+                  _buildDetailRow(
+                    Icons.location_on,
+                    'Location',
+                    widget.reportData['location'] ?? 'N/A',
+                  ),
                   if (timestamp != null)
                     _buildDetailRow(
                       Icons.access_time,
@@ -320,7 +368,10 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                 ),
                 Text(
                   value,
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ],
             ),
@@ -361,9 +412,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                   color: _getStatusColor(event.status),
                 ),
                 title: Text(event.status.toUpperCase()),
-                subtitle: Text(
-                  event.timestamp.toString().substring(0, 16),
-                ),
+                subtitle: Text(event.timestamp.toString().substring(0, 16)),
                 trailing: event.note != null
                     ? Tooltip(
                         message: event.note!,
@@ -379,14 +428,19 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
   }
 
   Widget _buildCommentsSection() {
-    return StreamBuilder<List<ReportComment>>(
-      stream: _analyticsService.getCommentsStream(widget.reportId),
+    // Get only top-level comments (no replies)
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('reports')
+          .doc(widget.reportId)
+          .collection('comments')
+          .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
 
-        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
           return Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -398,59 +452,353 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
           );
         }
 
+        // Filter top-level comments and sort by createdAt
+        final allComments = snapshot.data!.docs
+            .map(
+              (doc) =>
+                  ReportComment.fromJson(doc.data() as Map<String, dynamic>),
+            )
+            .toList();
+
+        final topLevelComments =
+            allComments.where((c) => c.parentCommentId == null).toList()
+              ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+
+        final repliesMap = <String, List<ReportComment>>{};
+        for (final comment in allComments.where(
+          (c) => c.parentCommentId != null,
+        )) {
+          repliesMap
+              .putIfAbsent(comment.parentCommentId!, () => [])
+              .add(comment);
+        }
+        // Sort replies
+        for (final replies in repliesMap.values) {
+          replies.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+        }
+
         return Column(
-          children: snapshot.data!.map((comment) {
-            return Card(
-              margin: const EdgeInsets.only(bottom: 8),
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        CircleAvatar(
-                          radius: 16,
-                          backgroundColor: Colors.green.shade200,
-                          child: Text(
-                            comment.userDisplayName[0].toUpperCase(),
-                            style: const TextStyle(fontSize: 12),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                comment.userDisplayName,
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              Text(
-                                comment.createdAt.toString().substring(0, 16),
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: Colors.grey.shade600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(comment.text),
-                  ],
-                ),
-              ),
-            );
+          children: topLevelComments.map((comment) {
+            final replies = repliesMap[comment.id] ?? [];
+            return _buildCommentCard(comment, replies);
           }).toList(),
         );
       },
     );
+  }
+
+  Widget _buildCommentCard(ReportComment comment, List<ReportComment> replies) {
+    final isLiked = comment.isLikedBy(_currentUserId);
+    final isReplying = _replyingToCommentId == comment.id;
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Comment header
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 18,
+                  backgroundColor: Colors.green.shade200,
+                  child: Text(
+                    comment.userDisplayName[0].toUpperCase(),
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        comment.userDisplayName,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        _formatTimeAgo(comment.createdAt),
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+
+            // Comment text
+            Text(comment.text, style: const TextStyle(fontSize: 14)),
+            const SizedBox(height: 10),
+
+            // Action buttons (like, reply)
+            Row(
+              children: [
+                // Like button
+                InkWell(
+                  onTap: () => _toggleLike(comment.id),
+                  borderRadius: BorderRadius.circular(20),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          isLiked ? Icons.favorite : Icons.favorite_border,
+                          size: 18,
+                          color: isLiked ? Colors.red : Colors.grey,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${comment.likeCount}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: isLiked ? Colors.red : Colors.grey,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+
+                // Reply button
+                InkWell(
+                  onTap: () {
+                    setState(() {
+                      if (_replyingToCommentId == comment.id) {
+                        _replyingToCommentId = null;
+                        _replyingToUserName = null;
+                      } else {
+                        _replyingToCommentId = comment.id;
+                        _replyingToUserName = comment.userDisplayName;
+                      }
+                    });
+                  },
+                  borderRadius: BorderRadius.circular(20),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.reply,
+                          size: 18,
+                          color: isReplying ? Colors.blue : Colors.grey,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Reply',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: isReplying ? Colors.blue : Colors.grey,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // Reply count
+                if (replies.isNotEmpty) ...[
+                  const SizedBox(width: 16),
+                  Text(
+                    '${replies.length} ${replies.length == 1 ? 'reply' : 'replies'}',
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  ),
+                ],
+              ],
+            ),
+
+            // Reply input
+            if (isReplying) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Replying to ${comment.userDisplayName}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _replyController,
+                            decoration: InputDecoration(
+                              hintText: 'Write a reply...',
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                              isDense: true,
+                            ),
+                            maxLines: null,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          onPressed: () => _addReply(comment.id),
+                          icon: const Icon(Icons.send, size: 20),
+                          style: IconButton.styleFrom(
+                            backgroundColor: Colors.green,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.all(8),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+
+            // Replies
+            if (replies.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Container(
+                margin: const EdgeInsets.only(left: 20),
+                padding: const EdgeInsets.only(left: 12),
+                decoration: BoxDecoration(
+                  border: Border(
+                    left: BorderSide(color: Colors.grey.shade300, width: 2),
+                  ),
+                ),
+                child: Column(
+                  children: replies
+                      .map((reply) => _buildReplyItem(reply))
+                      .toList(),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildReplyItem(ReportComment reply) {
+    final isLiked = reply.isLikedBy(_currentUserId);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 14,
+                backgroundColor: Colors.blue.shade200,
+                child: Text(
+                  reply.userDisplayName[0].toUpperCase(),
+                  style: const TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      reply.userDisplayName,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      _formatTimeAgo(reply.createdAt),
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(reply.text, style: const TextStyle(fontSize: 13)),
+          const SizedBox(height: 6),
+          InkWell(
+            onTap: () => _toggleLike(reply.id),
+            borderRadius: BorderRadius.circular(20),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    isLiked ? Icons.favorite : Icons.favorite_border,
+                    size: 14,
+                    color: isLiked ? Colors.red : Colors.grey,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${reply.likeCount}',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: isLiked ? Colors.red : Colors.grey,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatTimeAgo(DateTime dateTime) {
+    final now = DateTime.now();
+    final difference = now.difference(dateTime);
+
+    if (difference.inDays > 7) {
+      return '${dateTime.day}/${dateTime.month}/${dateTime.year}';
+    } else if (difference.inDays > 0) {
+      return '${difference.inDays}d ago';
+    } else if (difference.inHours > 0) {
+      return '${difference.inHours}h ago';
+    } else if (difference.inMinutes > 0) {
+      return '${difference.inMinutes}m ago';
+    } else {
+      return 'Just now';
+    }
   }
 
   Widget _buildCommentInput() {
@@ -464,7 +812,10 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(24),
               ),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 12,
+              ),
             ),
             maxLines: null,
           ),

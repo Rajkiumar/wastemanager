@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
-import 'package:image_picker/image_picker.dart';
-import 'dart:io';
 import '../screens/report_detail_screen.dart';
+import '../services/user_profile_service.dart';
 
 class ReportTab extends StatefulWidget {
   const ReportTab({super.key});
@@ -13,19 +11,19 @@ class ReportTab extends StatefulWidget {
   State<ReportTab> createState() => _ReportTabState();
 }
 
-class _ReportTabState extends State<ReportTab> with SingleTickerProviderStateMixin {
+class _ReportTabState extends State<ReportTab>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final TextEditingController _issueController = TextEditingController();
   final TextEditingController _locationController = TextEditingController();
+  final UserProfileService _profileService = UserProfileService();
   String _issueType = 'Missed Collection';
-  File? _imageFile;
   bool _isSending = false;
-  final ImagePicker _picker = ImagePicker();
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
   }
 
   @override
@@ -36,74 +34,9 @@ class _ReportTabState extends State<ReportTab> with SingleTickerProviderStateMix
     super.dispose();
   }
 
-  Future<void> _pickImage(ImageSource source) async {
-    try {
-      final XFile? pickedFile = await _picker.pickImage(
-        source: source,
-        maxWidth: 1080,
-        maxHeight: 1080,
-        imageQuality: 85,
-      );
-
-      if (pickedFile != null) {
-        setState(() {
-          _imageFile = File(pickedFile.path);
-        });
-      }
-    } catch (e) {
-      _showSnack('Error picking image: $e');
-    }
-  }
-
-  void _showImageSourceDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Add Photo'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.camera_alt),
-              title: const Text('Take Photo'),
-              onTap: () {
-                Navigator.pop(context);
-                _pickImage(ImageSource.camera);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.photo_library),
-              title: const Text('Choose from Gallery'),
-              onTap: () {
-                Navigator.pop(context);
-                _pickImage(ImageSource.gallery);
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Future<String?> _uploadImage(String reportId) async {
-    if (_imageFile == null) return null;
-
-    try {
-      final ref = FirebaseStorage.instance
-          .ref()
-          .child('reports')
-          .child('$reportId.jpg');
-      
-      await ref.putFile(_imageFile!);
-      return await ref.getDownloadURL();
-    } catch (e) {
-      _showSnack('Error uploading image: $e');
-      return null;
-    }
-  }
-
   Future<void> _submitReport() async {
-    if (_issueController.text.trim().isEmpty || _locationController.text.trim().isEmpty) {
+    if (_issueController.text.trim().isEmpty ||
+        _locationController.text.trim().isEmpty) {
       _showSnack('Please fill in all required fields.');
       return;
     }
@@ -112,7 +45,7 @@ class _ReportTabState extends State<ReportTab> with SingleTickerProviderStateMix
 
     try {
       final user = FirebaseAuth.instance.currentUser;
-      final docRef = await FirebaseFirestore.instance.collection('reports').add({
+      await FirebaseFirestore.instance.collection('reports').add({
         'issue': _issueController.text,
         'location': _locationController.text,
         'issueType': _issueType,
@@ -122,22 +55,17 @@ class _ReportTabState extends State<ReportTab> with SingleTickerProviderStateMix
         'userEmail': user?.email ?? 'anonymous',
       });
 
-      // Upload image if exists
-      if (_imageFile != null) {
-        final imageUrl = await _uploadImage(docRef.id);
-        if (imageUrl != null) {
-          await docRef.update({'imageUrl': imageUrl});
-        }
-      }
-
       _issueController.clear();
       _locationController.clear();
       setState(() {
-        _imageFile = null;
         _issueType = 'Missed Collection';
       });
 
-      _showSnack('Report submitted successfully!');
+      // Update user profile stats
+      await _profileService.incrementReportCount();
+      await _profileService.awardPoints(25, reason: 'Submitted a report');
+
+      _showSnack('Report submitted successfully! +25 points');
     } catch (e) {
       _showSnack('Error: $e');
     } finally {
@@ -146,9 +74,9 @@ class _ReportTabState extends State<ReportTab> with SingleTickerProviderStateMix
   }
 
   void _showSnack(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Color _getStatusColor(String status) {
@@ -186,16 +114,14 @@ class _ReportTabState extends State<ReportTab> with SingleTickerProviderStateMix
           controller: _tabController,
           tabs: const [
             Tab(icon: Icon(Icons.add_circle_outline), text: 'New Report'),
-            Tab(icon: Icon(Icons.list_alt), text: 'My Reports'),
+            Tab(icon: Icon(Icons.public), text: 'All Reports'),
+            Tab(icon: Icon(Icons.person), text: 'My Reports'),
           ],
         ),
       ),
       body: TabBarView(
         controller: _tabController,
-        children: [
-          _buildReportForm(),
-          _buildMyReports(),
-        ],
+        children: [_buildReportForm(), _buildAllReports(), _buildMyReports()],
       ),
     );
   }
@@ -216,7 +142,7 @@ class _ReportTabState extends State<ReportTab> with SingleTickerProviderStateMix
             style: TextStyle(color: Colors.grey),
           ),
           const SizedBox(height: 20),
-          
+
           // Issue Type Dropdown
           DropdownButtonFormField<String>(
             value: _issueType,
@@ -225,13 +151,19 @@ class _ReportTabState extends State<ReportTab> with SingleTickerProviderStateMix
               border: OutlineInputBorder(),
               prefixIcon: Icon(Icons.category),
             ),
-            items: [
-              'Missed Collection',
-              'Overflowing Bin',
-              'Illegal Dumping',
-              'Damaged Bin',
-              'Other',
-            ].map((type) => DropdownMenuItem(value: type, child: Text(type))).toList(),
+            items:
+                [
+                      'Missed Collection',
+                      'Overflowing Bin',
+                      'Illegal Dumping',
+                      'Damaged Bin',
+                      'Other',
+                    ]
+                    .map(
+                      (type) =>
+                          DropdownMenuItem(value: type, child: Text(type)),
+                    )
+                    .toList(),
             onChanged: (value) {
               if (value != null) {
                 setState(() => _issueType = value);
@@ -239,7 +171,7 @@ class _ReportTabState extends State<ReportTab> with SingleTickerProviderStateMix
             },
           ),
           const SizedBox(height: 16),
-          
+
           // Location Field
           TextField(
             controller: _locationController,
@@ -251,7 +183,7 @@ class _ReportTabState extends State<ReportTab> with SingleTickerProviderStateMix
             ),
           ),
           const SizedBox(height: 16),
-          
+
           // Issue Description
           TextField(
             controller: _issueController,
@@ -263,48 +195,7 @@ class _ReportTabState extends State<ReportTab> with SingleTickerProviderStateMix
             ),
           ),
           const SizedBox(height: 20),
-          
-          // Photo Section
-          if (_imageFile != null) ...[
-            Stack(
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.file(
-                    _imageFile!,
-                    height: 200,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                  ),
-                ),
-                Positioned(
-                  top: 8,
-                  right: 8,
-                  child: IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white),
-                    style: IconButton.styleFrom(
-                      backgroundColor: Colors.black54,
-                    ),
-                    onPressed: () {
-                      setState(() => _imageFile = null);
-                    },
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-          ],
-          
-          OutlinedButton.icon(
-            onPressed: _showImageSourceDialog,
-            icon: const Icon(Icons.add_a_photo),
-            label: Text(_imageFile == null ? 'Add Photo (Optional)' : 'Change Photo'),
-            style: OutlinedButton.styleFrom(
-              minimumSize: const Size(double.infinity, 50),
-            ),
-          ),
-          const SizedBox(height: 20),
-          
+
           // Submit Button
           SizedBox(
             width: double.infinity,
@@ -319,7 +210,10 @@ class _ReportTabState extends State<ReportTab> with SingleTickerProviderStateMix
                   ? const CircularProgressIndicator(color: Colors.white)
                   : const Text(
                       'Submit Report',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
             ),
           ),
@@ -331,131 +225,224 @@ class _ReportTabState extends State<ReportTab> with SingleTickerProviderStateMix
   Widget _buildMyReports() {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      return const Center(
-        child: Text('Please log in to view your reports'),
-      );
+      return const Center(child: Text('Please log in to view your reports'));
     }
 
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('reports')
           .where('userId', isEqualTo: user.uid)
-          .orderBy('timestamp', descending: true)
           .snapshots(),
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
+        return _buildReportsList(snapshot, isMyReports: true);
+      },
+    );
+  }
 
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.inbox, size: 80, color: Colors.grey.shade400),
-                const SizedBox(height: 16),
-                Text(
-                  'No reports yet',
-                  style: TextStyle(fontSize: 18, color: Colors.grey.shade600),
+  Widget _buildAllReports() {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance.collection('reports').snapshots(),
+      builder: (context, snapshot) {
+        return _buildReportsList(snapshot, isMyReports: false);
+      },
+    );
+  }
+
+  Widget _buildReportsList(
+    AsyncSnapshot<QuerySnapshot> snapshot, {
+    required bool isMyReports,
+  }) {
+    if (snapshot.connectionState == ConnectionState.waiting) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (snapshot.hasError) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.error_outline, size: 80, color: Colors.red.shade400),
+            const SizedBox(height: 16),
+            Text(
+              'Error loading reports',
+              style: TextStyle(fontSize: 18, color: Colors.red.shade600),
+            ),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              child: Text(
+                '${snapshot.error}',
+                style: const TextStyle(color: Colors.grey, fontSize: 12),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.inbox, size: 80, color: Colors.grey.shade400),
+            const SizedBox(height: 16),
+            Text(
+              isMyReports ? 'No reports yet' : 'No community reports yet',
+              style: TextStyle(fontSize: 18, color: Colors.grey.shade600),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              isMyReports
+                  ? 'Your submitted reports will appear here'
+                  : 'Be the first to submit a report!',
+              style: const TextStyle(color: Colors.grey),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Sort documents by timestamp (newest first) client-side
+    final docs = snapshot.data!.docs.toList();
+    docs.sort((a, b) {
+      final aTimestamp =
+          (a.data() as Map<String, dynamic>)['timestamp'] as Timestamp?;
+      final bTimestamp =
+          (b.data() as Map<String, dynamic>)['timestamp'] as Timestamp?;
+      if (aTimestamp == null && bTimestamp == null) return 0;
+      if (aTimestamp == null) return 1;
+      if (bTimestamp == null) return -1;
+      return bTimestamp.compareTo(aTimestamp);
+    });
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: docs.length,
+      itemBuilder: (context, index) {
+        final doc = docs[index];
+        final data = doc.data() as Map<String, dynamic>;
+        final status = data['status'] ?? 'Pending';
+        final timestamp = data['timestamp'] as Timestamp?;
+        final imageUrl = data['imageUrl'] as String?;
+        final userEmail = data['userEmail'] as String? ?? 'Anonymous';
+
+        return Card(
+          margin: const EdgeInsets.only(bottom: 16),
+          child: InkWell(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) =>
+                      ReportDetailScreen(reportId: doc.id, reportData: data),
                 ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Your submitted reports will appear here',
-                  style: TextStyle(color: Colors.grey),
+              );
+            },
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: _getStatusColor(status),
+                    child: Icon(_getStatusIcon(status), color: Colors.white),
+                  ),
+                  title: Text(
+                    data['issueType'] ?? 'Issue',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(data['location'] ?? ''),
+                      if (!isMyReports)
+                        Text(
+                          'By: ${userEmail.split('@').first}',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                    ],
+                  ),
+                  trailing: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _getStatusColor(status).withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      status,
+                      style: TextStyle(
+                        color: _getStatusColor(status),
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+                if (imageUrl != null)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.network(
+                        imageUrl,
+                        height: 150,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  ),
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        data['issue'] ?? '',
+                        style: const TextStyle(fontSize: 14),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          if (timestamp != null)
+                            Expanded(
+                              child: Text(
+                                'Submitted: ${timestamp.toDate().toString().substring(0, 16)}',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey.shade600,
+                                ),
+                              ),
+                            ),
+                          Icon(
+                            Icons.comment_outlined,
+                            size: 16,
+                            color: Colors.grey.shade500,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'View & Comment',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.green.shade600,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
-          );
-        }
-
-        return ListView.builder(
-          padding: const EdgeInsets.all(16),
-          itemCount: snapshot.data!.docs.length,
-          itemBuilder: (context, index) {
-            final doc = snapshot.data!.docs[index];
-            final data = doc.data() as Map<String, dynamic>;
-            final status = data['status'] ?? 'Pending';
-            final timestamp = data['timestamp'] as Timestamp?;
-            final imageUrl = data['imageUrl'] as String?;
-
-            return Card(
-              margin: const EdgeInsets.only(bottom: 16),
-              child: InkWell(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => ReportDetailScreen(
-                        reportId: doc.id,
-                        reportData: data,
-                      ),
-                    ),
-                  );
-                },
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: _getStatusColor(status),
-                        child: Icon(_getStatusIcon(status), color: Colors.white),
-                      ),
-                      title: Text(
-                        data['issueType'] ?? 'Issue',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      subtitle: Text(data['location'] ?? ''),
-                      trailing: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: _getStatusColor(status).withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          status,
-                          style: TextStyle(
-                            color: _getStatusColor(status),
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                    if (imageUrl != null)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: Image.network(
-                            imageUrl,
-                            height: 150,
-                            width: double.infinity,
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                      ),
-                    Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            data['issue'] ?? '',
-                            style: const TextStyle(fontSize: 14),
-                          ),
-                          const SizedBox(height: 8),
-                          if (timestamp != null)
-                            Text(
-                              'Submitted: ${timestamp.toDate().toString().substring(0, 16)}',
-                              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
+          ),
         );
       },
     );

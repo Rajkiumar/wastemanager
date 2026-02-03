@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 enum TrackerRange { day, week, month }
 
@@ -46,11 +47,13 @@ class _TrackerTabState extends State<TrackerTab> {
             const SizedBox(height: 20),
             ElevatedButton(
               onPressed: () async {
+                final now = DateTime.now();
                 await FirebaseFirestore.instance.collection('trucks').add({
                   'neighborhood': areaController.text,
                   'status': status,
-                  'eta': 'Updated ${DateTime.now().hour}:${DateTime.now().minute.toString().padLeft(2, '0')}',
+                  'eta': 'Updated ${now.hour}:${now.minute.toString().padLeft(2, '0')}',
                   'timestamp': FieldValue.serverTimestamp(),
+                  'updatedDate': DateFormat('MMMM d, yyyy').format(now),
                 });
                 Navigator.pop(context);
               },
@@ -140,16 +143,41 @@ class _TrackerTabState extends State<TrackerTab> {
                     final data = doc.data();
                     final timestamp = data['timestamp'] as Timestamp?;
                     final timeText = timestamp != null
-                        ? 'Updated ${timestamp.toDate().hour}:${timestamp.toDate().minute.toString().padLeft(2, '0')}'
+                        ? '${timestamp.toDate().hour}:${timestamp.toDate().minute.toString().padLeft(2, '0')}'
                         : (data['eta']?.toString() ?? '');
+                    
+                    // Get the date - either from stored field or from timestamp
+                    String dateText = '';
+                    if (data['updatedDate'] != null) {
+                      dateText = data['updatedDate'] as String;
+                    } else if (timestamp != null) {
+                      dateText = DateFormat('MMMM d, yyyy').format(timestamp.toDate());
+                    }
 
                     return Card(
                       margin: const EdgeInsets.all(8),
                       child: ListTile(
                         leading: const Icon(Icons.local_shipping, color: Colors.green),
                         title: Text(data['neighborhood'] ?? 'Unknown area'),
-                        subtitle: Text('Status: ${data['status'] ?? 'Unknown'}'),
-                        trailing: Text(timeText),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Status: ${data['status'] ?? 'Unknown'}'),
+                            if (dateText.isNotEmpty)
+                              Text(
+                                'Updated: $dateText',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey.shade600,
+                                ),
+                              ),
+                          ],
+                        ),
+                        trailing: Text(
+                          timeText,
+                          style: const TextStyle(fontWeight: FontWeight.w500),
+                        ),
+                        isThreeLine: dateText.isNotEmpty,
                       ),
                     );
                   }).toList(),
