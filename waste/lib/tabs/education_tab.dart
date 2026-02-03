@@ -10,46 +10,183 @@ class EducationTab extends StatefulWidget {
   State<EducationTab> createState() => _EducationTabState();
 }
 
-class _EducationTabState extends State<EducationTab> with SingleTickerProviderStateMixin {
+class _EducationTabState extends State<EducationTab>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
 
   final Map<String, Map<String, dynamic>> _sortingGuide = {
     // Organic Waste
-    'Food scraps': {'bin': 'Organic', 'color': Colors.green, 'icon': Icons.eco, 'points': 5},
-    'Fruit peels': {'bin': 'Organic', 'color': Colors.green, 'icon': Icons.eco, 'points': 5},
-    'Vegetable waste': {'bin': 'Organic', 'color': Colors.green, 'icon': Icons.eco, 'points': 5},
-    'Coffee grounds': {'bin': 'Organic', 'color': Colors.green, 'icon': Icons.eco, 'points': 5},
-    'Tea bags': {'bin': 'Organic', 'color': Colors.green, 'icon': Icons.eco, 'points': 5},
-    'Yard waste': {'bin': 'Organic', 'color': Colors.green, 'icon': Icons.eco, 'points': 5},
-    'Leaves': {'bin': 'Organic', 'color': Colors.green, 'icon': Icons.eco, 'points': 5},
-    
+    'Food scraps': {
+      'bin': 'Organic',
+      'color': Colors.green,
+      'icon': Icons.eco,
+      'points': 5,
+    },
+    'Fruit peels': {
+      'bin': 'Organic',
+      'color': Colors.green,
+      'icon': Icons.eco,
+      'points': 5,
+    },
+    'Vegetable waste': {
+      'bin': 'Organic',
+      'color': Colors.green,
+      'icon': Icons.eco,
+      'points': 5,
+    },
+    'Coffee grounds': {
+      'bin': 'Organic',
+      'color': Colors.green,
+      'icon': Icons.eco,
+      'points': 5,
+    },
+    'Tea bags': {
+      'bin': 'Organic',
+      'color': Colors.green,
+      'icon': Icons.eco,
+      'points': 5,
+    },
+    'Yard waste': {
+      'bin': 'Organic',
+      'color': Colors.green,
+      'icon': Icons.eco,
+      'points': 5,
+    },
+    'Leaves': {
+      'bin': 'Organic',
+      'color': Colors.green,
+      'icon': Icons.eco,
+      'points': 5,
+    },
+
     // Plastic & Metal
-    'Plastic bottles': {'bin': 'Plastic & Metal', 'color': Colors.yellow.shade700, 'icon': Icons.recycling, 'points': 10},
-    'Plastic containers': {'bin': 'Plastic & Metal', 'color': Colors.yellow.shade700, 'icon': Icons.recycling, 'points': 10},
-    'Aluminum cans': {'bin': 'Plastic & Metal', 'color': Colors.yellow.shade700, 'icon': Icons.recycling, 'points': 10},
-    'Metal cans': {'bin': 'Plastic & Metal', 'color': Colors.yellow.shade700, 'icon': Icons.recycling, 'points': 10},
-    'Plastic bags': {'bin': 'Plastic & Metal', 'color': Colors.yellow.shade700, 'icon': Icons.recycling, 'points': 10},
-    'Food wrappers': {'bin': 'Plastic & Metal', 'color': Colors.yellow.shade700, 'icon': Icons.recycling, 'points': 10},
-    
+    'Plastic bottles': {
+      'bin': 'Plastic & Metal',
+      'color': Colors.yellow.shade700,
+      'icon': Icons.recycling,
+      'points': 10,
+    },
+    'Plastic containers': {
+      'bin': 'Plastic & Metal',
+      'color': Colors.yellow.shade700,
+      'icon': Icons.recycling,
+      'points': 10,
+    },
+    'Aluminum cans': {
+      'bin': 'Plastic & Metal',
+      'color': Colors.yellow.shade700,
+      'icon': Icons.recycling,
+      'points': 10,
+    },
+    'Metal cans': {
+      'bin': 'Plastic & Metal',
+      'color': Colors.yellow.shade700,
+      'icon': Icons.recycling,
+      'points': 10,
+    },
+    'Plastic bags': {
+      'bin': 'Plastic & Metal',
+      'color': Colors.yellow.shade700,
+      'icon': Icons.recycling,
+      'points': 10,
+    },
+    'Food wrappers': {
+      'bin': 'Plastic & Metal',
+      'color': Colors.yellow.shade700,
+      'icon': Icons.recycling,
+      'points': 10,
+    },
+
     // Paper & Cardboard
-    'Newspapers': {'bin': 'Paper & Cardboard', 'color': Colors.blue, 'icon': Icons.description, 'points': 8},
-    'Magazines': {'bin': 'Paper & Cardboard', 'color': Colors.blue, 'icon': Icons.description, 'points': 8},
-    'Cardboard boxes': {'bin': 'Paper & Cardboard', 'color': Colors.blue, 'icon': Icons.description, 'points': 8},
-    'Paper bags': {'bin': 'Paper & Cardboard', 'color': Colors.blue, 'icon': Icons.description, 'points': 8},
-    'Office paper': {'bin': 'Paper & Cardboard', 'color': Colors.blue, 'icon': Icons.description, 'points': 8},
-    'Pizza boxes': {'bin': 'Paper & Cardboard', 'color': Colors.blue, 'icon': Icons.description, 'points': 8, 'note': 'Only if not greasy'},
-    'Envelopes': {'bin': 'Paper & Cardboard', 'color': Colors.blue, 'icon': Icons.description, 'points': 8},
-    
+    'Newspapers': {
+      'bin': 'Paper & Cardboard',
+      'color': Colors.blue,
+      'icon': Icons.description,
+      'points': 8,
+    },
+    'Magazines': {
+      'bin': 'Paper & Cardboard',
+      'color': Colors.blue,
+      'icon': Icons.description,
+      'points': 8,
+    },
+    'Cardboard boxes': {
+      'bin': 'Paper & Cardboard',
+      'color': Colors.blue,
+      'icon': Icons.description,
+      'points': 8,
+    },
+    'Paper bags': {
+      'bin': 'Paper & Cardboard',
+      'color': Colors.blue,
+      'icon': Icons.description,
+      'points': 8,
+    },
+    'Office paper': {
+      'bin': 'Paper & Cardboard',
+      'color': Colors.blue,
+      'icon': Icons.description,
+      'points': 8,
+    },
+    'Pizza boxes': {
+      'bin': 'Paper & Cardboard',
+      'color': Colors.blue,
+      'icon': Icons.description,
+      'points': 8,
+      'note': 'Only if not greasy',
+    },
+    'Envelopes': {
+      'bin': 'Paper & Cardboard',
+      'color': Colors.blue,
+      'icon': Icons.description,
+      'points': 8,
+    },
+
     // Glass & Electronics
-    'Glass bottles': {'bin': 'Glass & Electronics', 'color': Colors.purple, 'icon': Icons.electrical_services, 'points': 12},
-    'Glass jars': {'bin': 'Glass & Electronics', 'color': Colors.purple, 'icon': Icons.electrical_services, 'points': 12},
-    'Light bulbs': {'bin': 'Glass & Electronics', 'color': Colors.purple, 'icon': Icons.electrical_services, 'points': 12},
-    'Batteries': {'bin': 'Glass & Electronics', 'color': Colors.purple, 'icon': Icons.electrical_services, 'points': 15},
-    'Electronics': {'bin': 'Glass & Electronics', 'color': Colors.purple, 'icon': Icons.electrical_services, 'points': 15},
-    'Phone chargers': {'bin': 'Glass & Electronics', 'color': Colors.purple, 'icon': Icons.electrical_services, 'points': 15},
-    'Old phones': {'bin': 'Glass & Electronics', 'color': Colors.purple, 'icon': Icons.electrical_services, 'points': 20},
+    'Glass bottles': {
+      'bin': 'Glass & Electronics',
+      'color': Colors.purple,
+      'icon': Icons.electrical_services,
+      'points': 12,
+    },
+    'Glass jars': {
+      'bin': 'Glass & Electronics',
+      'color': Colors.purple,
+      'icon': Icons.electrical_services,
+      'points': 12,
+    },
+    'Light bulbs': {
+      'bin': 'Glass & Electronics',
+      'color': Colors.purple,
+      'icon': Icons.electrical_services,
+      'points': 12,
+    },
+    'Batteries': {
+      'bin': 'Glass & Electronics',
+      'color': Colors.purple,
+      'icon': Icons.electrical_services,
+      'points': 15,
+    },
+    'Electronics': {
+      'bin': 'Glass & Electronics',
+      'color': Colors.purple,
+      'icon': Icons.electrical_services,
+      'points': 15,
+    },
+    'Phone chargers': {
+      'bin': 'Glass & Electronics',
+      'color': Colors.purple,
+      'icon': Icons.electrical_services,
+      'points': 15,
+    },
+    'Old phones': {
+      'bin': 'Glass & Electronics',
+      'color': Colors.purple,
+      'icon': Icons.electrical_services,
+      'points': 20,
+    },
   };
 
   @override
@@ -70,15 +207,22 @@ class _EducationTabState extends State<EducationTab> with SingleTickerProviderSt
       return _sortingGuide.entries.toList();
     }
     return _sortingGuide.entries
-        .where((entry) =>
-            entry.key.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-            entry.value['bin'].toString().toLowerCase().contains(_searchQuery.toLowerCase()))
+        .where(
+          (entry) =>
+              entry.key.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+              entry.value['bin'].toString().toLowerCase().contains(
+                _searchQuery.toLowerCase(),
+              ),
+        )
         .toList();
   }
 
   Future<void> _awardPoints(int points) async {
     try {
-      await UserProfileService().awardPoints(points, reason: 'Waste sorting learned');
+      await UserProfileService().awardPoints(
+        points,
+        reason: 'Waste sorting learned',
+      );
     } catch (e) {
       debugPrint('Error awarding points: $e');
     }
@@ -164,7 +308,9 @@ class _EducationTabState extends State<EducationTab> with SingleTickerProviderSt
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('Earned ${details['points']} Green Points! 🎉'),
+                      content: Text(
+                        'Earned ${details['points']} Green Points! 🎉',
+                      ),
                       backgroundColor: Colors.green,
                     ),
                   );
@@ -204,10 +350,7 @@ class _EducationTabState extends State<EducationTab> with SingleTickerProviderSt
       ),
       body: TabBarView(
         controller: _tabController,
-        children: [
-          _buildSortingGuide(),
-          _buildGamification(),
-        ],
+        children: [_buildSortingGuide(), _buildGamification()],
       ),
     );
   }
@@ -245,7 +388,7 @@ class _EducationTabState extends State<EducationTab> with SingleTickerProviderSt
             },
           ),
         ),
-        
+
         // Category Chips
         if (_searchQuery.isEmpty)
           SingleChildScrollView(
@@ -261,9 +404,9 @@ class _EducationTabState extends State<EducationTab> with SingleTickerProviderSt
               ],
             ),
           ),
-        
+
         const SizedBox(height: 8),
-        
+
         // Items List
         Expanded(
           child: _filteredItems.isEmpty
@@ -271,11 +414,18 @@ class _EducationTabState extends State<EducationTab> with SingleTickerProviderSt
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.search_off, size: 80, color: Colors.grey.shade400),
+                      Icon(
+                        Icons.search_off,
+                        size: 80,
+                        color: Colors.grey.shade400,
+                      ),
                       const SizedBox(height: 16),
                       Text(
                         'No items found',
-                        style: TextStyle(fontSize: 18, color: Colors.grey.shade600),
+                        style: TextStyle(
+                          fontSize: 18,
+                          color: Colors.grey.shade600,
+                        ),
                       ),
                       const SizedBox(height: 8),
                       const Text(
@@ -292,7 +442,7 @@ class _EducationTabState extends State<EducationTab> with SingleTickerProviderSt
                     final entry = _filteredItems[index];
                     final itemName = entry.key;
                     final details = entry.value;
-                    
+
                     return Card(
                       margin: const EdgeInsets.only(bottom: 12),
                       child: ListTile(
@@ -308,7 +458,11 @@ class _EducationTabState extends State<EducationTab> with SingleTickerProviderSt
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.stars, size: 16, color: Colors.amber.shade700),
+                            Icon(
+                              Icons.stars,
+                              size: 16,
+                              color: Colors.amber.shade700,
+                            ),
                             const SizedBox(width: 4),
                             Text(
                               '+${details['points']}',
@@ -364,13 +518,14 @@ class _EducationTabState extends State<EducationTab> with SingleTickerProviderSt
       );
     }
 
-    return StreamBuilder<DocumentSnapshot>(
-      stream: FirebaseFirestore.instance.collection('users').doc(user.uid).snapshots(),
+    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+      stream: FirebaseFirestore.instance
+          .collection('userProfiles')
+          .doc(user.uid)
+          .snapshots(),
       builder: (context, snapshot) {
-        int greenPoints = 0;
-        if (snapshot.hasData && snapshot.data!.exists) {
-          greenPoints = snapshot.data!.get('greenPoints') ?? 0;
-        }
+        final data = snapshot.data?.data();
+        final greenPoints = (data?['greenPoints'] as int?) ?? 0;
 
         final level = (greenPoints / 100).floor() + 1;
         final pointsToNextLevel = (level * 100) - greenPoints;
@@ -397,7 +552,11 @@ class _EducationTabState extends State<EducationTab> with SingleTickerProviderSt
                   ),
                   child: Column(
                     children: [
-                      const Icon(Icons.emoji_events, size: 60, color: Colors.white),
+                      const Icon(
+                        Icons.emoji_events,
+                        size: 60,
+                        color: Colors.white,
+                      ),
                       const SizedBox(height: 12),
                       Text(
                         '$greenPoints',
@@ -409,14 +568,14 @@ class _EducationTabState extends State<EducationTab> with SingleTickerProviderSt
                       ),
                       const Text(
                         'Green Points',
-                        style: TextStyle(
-                          fontSize: 18,
-                          color: Colors.white70,
-                        ),
+                        style: TextStyle(fontSize: 18, color: Colors.white70),
                       ),
                       const SizedBox(height: 20),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 10,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.white.withOpacity(0.2),
                           borderRadius: BorderRadius.circular(20),
@@ -435,7 +594,7 @@ class _EducationTabState extends State<EducationTab> with SingleTickerProviderSt
                 ),
               ),
               const SizedBox(height: 20),
-              
+
               // Progress to Next Level
               Card(
                 child: Padding(
@@ -445,7 +604,10 @@ class _EducationTabState extends State<EducationTab> with SingleTickerProviderSt
                     children: [
                       const Text(
                         'Progress to Next Level',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       const SizedBox(height: 12),
                       ClipRRect(
@@ -454,7 +616,9 @@ class _EducationTabState extends State<EducationTab> with SingleTickerProviderSt
                           value: progress,
                           minHeight: 12,
                           backgroundColor: Colors.grey.shade300,
-                          valueColor: AlwaysStoppedAnimation(Colors.green.shade600),
+                          valueColor: AlwaysStoppedAnimation(
+                            Colors.green.shade600,
+                          ),
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -467,29 +631,57 @@ class _EducationTabState extends State<EducationTab> with SingleTickerProviderSt
                 ),
               ),
               const SizedBox(height: 20),
-              
+
               // How to Earn Points
               const Text(
                 'How to Earn Points',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 12),
-              _buildPointsInfo('Search sorting guide', '5-20 points per item', Icons.search),
-              _buildPointsInfo('Report issues', '25 points per report', Icons.report),
-              _buildPointsInfo('Complete challenges', '50-100 points', Icons.card_giftcard),
-              
+              _buildPointsInfo(
+                'Search sorting guide',
+                '5-20 points per item',
+                Icons.search,
+              ),
+              _buildPointsInfo(
+                'Report issues',
+                '25 points per report',
+                Icons.report,
+              ),
+              _buildPointsInfo(
+                'Complete challenges',
+                '50-100 points',
+                Icons.card_giftcard,
+              ),
+
               const SizedBox(height: 20),
-              
+
               // Achievements
               const Text(
                 'Achievements',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 12),
-              _buildAchievement('First Steps', 'Earn your first 50 points', greenPoints >= 50),
-              _buildAchievement('Eco Warrior', 'Reach 100 points', greenPoints >= 100),
-              _buildAchievement('Green Champion', 'Reach 500 points', greenPoints >= 500),
-              _buildAchievement('Sustainability Master', 'Reach 1000 points', greenPoints >= 1000),
+              _buildAchievement(
+                'First Steps',
+                'Earn your first 50 points',
+                greenPoints >= 50,
+              ),
+              _buildAchievement(
+                'Eco Warrior',
+                'Reach 100 points',
+                greenPoints >= 100,
+              ),
+              _buildAchievement(
+                'Green Champion',
+                'Reach 500 points',
+                greenPoints >= 500,
+              ),
+              _buildAchievement(
+                'Sustainability Master',
+                'Reach 1000 points',
+                greenPoints >= 1000,
+              ),
             ],
           ),
         );

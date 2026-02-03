@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/user_profile_service.dart';
 import '../services/theme_service.dart';
+import '../services/accessibility_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -13,16 +14,28 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   late UserProfileService _profileService;
   late Future<Map<String, dynamic>> _preferencesFuture;
+  final AccessibilityService _accessibilityService = AccessibilityService();
 
   String _selectedLanguage = 'en';
   bool _notificationsEnabled = true;
   bool _darkModeEnabled = false;
+  bool _highContrastMode = false;
 
   @override
   void initState() {
     super.initState();
     _profileService = UserProfileService();
     _preferencesFuture = _loadPreferences();
+    _loadAccessibilitySettings();
+  }
+
+  Future<void> _loadAccessibilitySettings() async {
+    await _accessibilityService.init();
+    if (mounted) {
+      setState(() {
+        _highContrastMode = _accessibilityService.isHighContrastEnabled();
+      });
+    }
   }
 
   Future<Map<String, dynamic>> _loadPreferences() async {
@@ -33,7 +46,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (profile != null) {
       setState(() {
         _selectedLanguage = profile.preferences['language'] ?? 'en';
-        _notificationsEnabled = profile.preferences['notificationsEnabled'] ?? true;
+        _notificationsEnabled =
+            profile.preferences['notificationsEnabled'] ?? true;
         _darkModeEnabled = profile.preferences['darkMode'] ?? false;
       });
       ThemeController.instance.setDarkMode(_darkModeEnabled);
@@ -57,9 +71,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         const SnackBar(content: Text('Settings saved successfully')),
       );
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error saving settings: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error saving settings: $e')));
     }
   }
 
@@ -112,6 +126,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     await _savePreferences();
                   },
                 ),
+                const SizedBox(height: 12),
+                _buildToggleTile(
+                  title: 'High Contrast Mode',
+                  subtitle: 'Increase color contrast for better visibility',
+                  value: _highContrastMode,
+                  onChanged: (value) async {
+                    setState(() => _highContrastMode = value);
+                    await _accessibilityService.setHighContrast(value);
+                  },
+                ),
                 const Divider(height: 24),
 
                 // Language Section
@@ -120,9 +144,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   title: 'Select Language',
                   subtitle: 'Choose your preferred language',
                   value: _selectedLanguage,
-                  items: {
-                    'en': 'English',
-                  },
+                  items: {'en': 'English'},
                   onChanged: (value) {
                     setState(() => _selectedLanguage = value);
                     _savePreferences();
@@ -223,10 +245,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 8),
-          Text(
-            title,
-            style: const TextStyle(fontWeight: FontWeight.w600),
-          ),
+          Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
           Text(
             subtitle,
             style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
@@ -236,7 +255,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             isExpanded: true,
             value: value,
             items: items.entries
-                .map((e) => DropdownMenuItem(value: e.key, child: Text(e.value)))
+                .map(
+                  (e) => DropdownMenuItem(value: e.key, child: Text(e.value)),
+                )
                 .toList(),
             onChanged: (val) {
               if (val != null) onChanged(val);
@@ -335,14 +356,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   if (mounted) {
                     Navigator.pop(context);
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Password changed successfully')),
+                      const SnackBar(
+                        content: Text('Password changed successfully'),
+                      ),
                     );
                   }
                 }
               } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Error: $e')),
-                );
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(SnackBar(content: Text('Error: $e')));
               }
             },
             child: const Text('Change'),
@@ -357,7 +380,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete Account'),
-        content: const Text('This action cannot be undone. All your data will be permanently deleted.'),
+        content: const Text(
+          'This action cannot be undone. All your data will be permanently deleted.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -369,7 +394,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 final user = FirebaseAuth.instance.currentUser;
                 if (user != null) {
                   // Delete user profile from Firestore
-                  await _profileService.updateProfile(user.uid, {'deletedAt': DateTime.now()});
+                  await _profileService.updateProfile(user.uid, {
+                    'deletedAt': DateTime.now(),
+                  });
                   // Delete user from Firebase Auth
                   await user.delete();
                   if (mounted) {
@@ -377,15 +404,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   }
                 }
               } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Error: $e')),
-                );
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(SnackBar(content: Text('Error: $e')));
               }
             },
-            child: const Text(
-              'Delete',
-              style: TextStyle(color: Colors.red),
-            ),
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),

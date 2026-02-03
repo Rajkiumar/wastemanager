@@ -75,7 +75,7 @@ class DailyMetric {
   }
 }
 
-/// Comment model for reports
+/// Comment model for reports with reactions and replies
 class ReportComment {
   final String id;
   final String reportId;
@@ -83,6 +83,8 @@ class ReportComment {
   final String userDisplayName;
   final String text;
   final DateTime createdAt;
+  final List<String> likedBy; // List of userIds who liked
+  final String? parentCommentId; // For replies - null means top-level comment
 
   ReportComment({
     required this.id,
@@ -91,7 +93,13 @@ class ReportComment {
     required this.userDisplayName,
     required this.text,
     required this.createdAt,
+    this.likedBy = const [],
+    this.parentCommentId,
   });
+
+  int get likeCount => likedBy.length;
+
+  bool isLikedBy(String userId) => likedBy.contains(userId);
 
   Map<String, dynamic> toJson() {
     return {
@@ -101,6 +109,8 @@ class ReportComment {
       'userDisplayName': userDisplayName,
       'text': text,
       'createdAt': Timestamp.fromDate(createdAt),
+      'likedBy': likedBy,
+      'parentCommentId': parentCommentId,
     };
   }
 
@@ -112,6 +122,8 @@ class ReportComment {
       userDisplayName: json['userDisplayName'] as String? ?? 'Unknown User',
       text: json['text'] as String,
       createdAt: (json['createdAt'] as Timestamp).toDate(),
+      likedBy: List<String>.from(json['likedBy'] ?? []),
+      parentCommentId: json['parentCommentId'] as String?,
     );
   }
 }

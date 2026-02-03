@@ -121,23 +121,27 @@ class _ScheduleTabState extends State<ScheduleTab> {
           // Notification Settings
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: StreamBuilder<DocumentSnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('users')
-                  .doc(FirebaseAuth.instance.currentUser?.uid)
-                  .snapshots(),
-              builder: (context, snapshot) {
-                bool notificationsEnabled = false;
-                if (snapshot.hasData && snapshot.data!.exists) {
-                  notificationsEnabled = snapshot.data!.get('notifications_enabled') ?? false;
+            child: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+              stream: () {
+                final user = FirebaseAuth.instance.currentUser;
+                if (user == null) {
+                  return const Stream<DocumentSnapshot<Map<String, dynamic>>>.empty();
                 }
-                
+                return FirebaseFirestore.instance
+                    .collection('users')
+                    .doc(user.uid)
+                    .snapshots();
+              }(),
+              builder: (context, snapshot) {
+                final data = snapshot.data?.data();
+                final notificationsEnabled = (data?['notifications_enabled'] as bool?) ?? false;
+
                 return Card(
                   child: SwitchListTile(
                     title: const Text('Reminder Notifications'),
                     subtitle: const Text('Get alerts the night before pickup'),
                     value: notificationsEnabled,
-                    onChanged: _toggleNotifications,
+                    onChanged: FirebaseAuth.instance.currentUser == null ? null : _toggleNotifications,
                     secondary: const Icon(Icons.notifications_active, color: Colors.green),
                   ),
                 );
